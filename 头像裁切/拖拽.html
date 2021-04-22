@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    canvas {
+      border: 1px solid #ccc;
+      /* margin-left: 200px;
+      margin-top: 200px; */
+    }
+
+    div {}
+
+    .upload-container {
+      text-align: right;
+    }
+
+    .canvas-wrapper {}
+
+    #canvas {
+      position: relative;
+
+      z-index: 1;
+    }
+
+    #canvas1 {
+      position: absolute;
+      z-index: 0;
+    }
+
+    canvas {}
+  </style>
+</head>
+
+<body>
+  <div class="canvas-wrapper">
+    <canvas width="500px" height="500px" id="canvas1"></canvas>
+    <canvas width="500px" height="500px" id="canvas"></canvas>
+    <!-- <canvas width="200px" height="200px" id="canvas2"></canvas> -->
+  </div>
+  <div class="upload-container">
+    图片上传<input id='upload' type="file">
+    <!-- <button type="" onclick="imgUpload">上传</button> -->
+  </div>
+  <script src="../util.js"></script>
+  <script>
+    let uploadInput = document.getElementById('upload');
+    let canvas1canvas = document.querySelector('canvas');
+    let canvas1 = document.getElementById('canvas1');
+    let ctx = canvas.getContext('2d');
+    let ctx1 = canvas1.getContext('2d');
+    let rect = canvas.getBoundingClientRect();
+    let src = null;
+    // 是否上传了头像
+    let isUploaded = false;
+    let isDrawOver = false;
+    // ctx.fillStyle = 'black';
+    // ctx.beginPath();
+    // ctx.rect(0, 0, 600, 600);
+    // ctx.closePath();
+    // ctx.fill();
+    let dragDistance = {
+      x: 0,
+      y: 0,
+    };
+    let start = {
+      x: 0,
+      y: 0,
+    };
+    let end = {
+      x: 0,
+      y: 0,
+    };
+    let width = 0;
+    let height = 0;
+
+    uploadInput.onchange = function (e) {
+      let file = e.target.files[0]
+      let reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = function () {
+        src = this.result;
+        // drawImage(this.result, ctx, canvas);
+        isUploaded = true;
+        drawImage(this.result, ctx1, canvas1);
+      }
+    }
+    canvas.addEventListener("mousedown", handleMouseDown)
+
+    // 鼠标第一次按下
+    function handleMouseDown(mouseDownEvent) {
+      if (isUploaded) {
+        if (!isDrawOver) {
+          ctx.beginPath();
+          start = {
+            x: mouseDownEvent.clientX - rect.x,
+            y: mouseDownEvent.clientY - rect.top,
+          };
+          ctx.moveTo(start.x, start.y);
+          canvas.onmousemove = handleStrechBox;
+        }
+      }
+    }
+    // 鼠标按下移动拉伸
+    function handleStrechBox(stretchEvent) {
+      if (!isDrawOver) {
+        document.body.style.cursor = 'crosshair';
+        end = {
+          x: stretchEvent.clientX - rect.x,
+          y: stretchEvent.clientY - rect.y,
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.lineTo(end.x, end.y);
+        ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+      }
+    }
+
+    async function drawImage(src, ctx, canvas) {
+      let img = await loadImg(src);
+      // 根据图片原始比例占满全屏幕
+      let rate = img.width / img.height;
+      let imgWidth = rate >= 1 ? canvas.width : img.width * (canvas.height / img.height);
+      let imgHeight = rate >= 1 ? img.height * (canvas.width / img.width) : canvas.height;
+      // 是图片处于canvas中心位置
+      let startAxis = {
+        x: rate >= 1 ? 0 : (canvas.width - imgWidth) / 2,
+        y: rate >= 1 ? (canvas.width - imgHeight) / 2 : 0,
+      }
+      ctx.drawImage(img, startAxis.x, startAxis.y, imgWidth, imgHeight);
+    }
+
+    canvas.onmouseup = function (e) {
+      if (isUploaded) {
+        isDrawOver = true;
+        end = {
+          x: e.clientX - rect.x,
+          y: e.clientY - rect.y,
+        }
+        width = Math.abs(end.x - start.x);
+        height = Math.abs(end.y - start.y);
+        let dragX = 0;
+        let dragY = 0;
+        let action = 'hover';
+        let startAxis = {
+          x: 0,
+          y: 0,
+        }
+        let directionSymbol = {
+          x: '1',
+          y: '1'
+        };
+        document.onmousemove = function (moveEvent) {
+          // 'move' | 'hover' | 'stretch'
+          // 是否在操作中
+          let opreationing = false;
+          let currentMousePos = {
+            x: moveEvent.clientX - rect.x,
+            y: moveEvent.clientY - rect.y
+          };
+          let topLeft = start;
+          let topRight = {
+            y: start.y,
+            x: start.x + width
+          };
+          let bottomLeft = {
+            x: start.x,
+            y: end.y
+          };
+          let minStretchWidth = 30;
+          let minStretchHeight = 50;
+          let bottomRight = end;
+          if (isDrawOver) {
+            if (isInTangel(currentMousePos, topLeft, topRight, bottomLeft, bottomRight)) {
+              document.body.style.cursor = 'crosshair';
+            } else if (isInRect(currentMousePos, start, end)) {
+              document.body.style.cursor = 'move';
+            } else {
+              document.body.style.cursor = 'default';
+            }
+
+            canvas.onmousedown = function (mouseDownEvent) {
+              dragX = e.clientX - rect.x;
+              dragY = e.clientY - rect.y;
+              let startSide = 'top-right';
+              if (!opreationing) {
+                if (isInTangel(currentMousePos, topLeft, topRight, bottomLeft, bottomRight)) {
+                  // 判断拉伸的位置
+                  startSide = getStartSide(currentMousePos, topLeft, topRight, bottomLeft, bottomRight);
+                  action = 'stretch';
+                  opreationing = true;
+                } else if (isInRect(currentMousePos, start, end)) {
+                  action = 'move';
+                  opreationing = true;
+                } else {
+                  action = 'hover';
+                }
+              }
+              canvas.onmousemove = function (canvasMoveEvent) {
+                dragDistance = {
+                  x: canvasMoveEvent.clientX - mouseDownEvent.clientX,
+                  y: canvasMoveEvent.clientY - mouseDownEvent.clientY,
+                }
+                if (opreationing) {
+                  switch (action) {
+                    case 'stretch':
+                      ctx.beginPath();
+                      switch (startSide) {
+                        case 'top-left':
+                          directionSymbol = {
+                            x: '-1',
+                            y: '-1'
+                          };
+                          startAxis = end;
+                          break;
+                        case 'top-right':
+                          directionSymbol = {
+                            x: '1',
+                            y: '-1'
+                          };
+                          startAxis = {
+                            x: start.x,
+                            y: end.y
+                          };
+                          break;
+                        case 'bottom-left':
+                          directionSymbol = {
+                            x: '-1',
+                            y: '1'
+                          };
+                          startAxis = {
+                            x: end.x,
+                            y: start.y
+                          };
+                          break;
+                        case 'bottom-right':
+                          directionSymbol = {
+                            x: '1',
+                            y: '1'
+                          };
+                          startAxis = start;
+                          break;
+                        default:
+                          startAxis = start;
+                          break;
+                      }
+                      let newWidth = Math.sign(
+                        directionSymbol.x) * width + dragDistance.x;
+                      let newHeight = Math.sign(
+                        directionSymbol.y) * height + dragDistance.y;
+                      ctx.strokeRect(
+                        startAxis.x,
+                        startAxis.y,
+                        Math.abs(newWidth) <= minStretchWidth ? Math.sign(directionSymbol.x) *
+                        minStretchWidth :
+                        newWidth,
+                        Math.abs(newHeight) <= minStretchHeight ? Math.sign(directionSymbol.y) *
+                        minStretchHeight : newHeight,
+                      );
+                      break;
+                    case 'move':
+                      ctx.beginPath();
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      ctx.strokeRect(start.x + dragDistance.x, start.y + dragDistance.y, width, height);
+                      break;
+                    case 'hover':
+                    default:
+                      break;
+                  }
+                }
+              }
+              canvas.onmouseup = function (e) {
+                opreationing = false;
+                switch (action) {
+                  case 'stretch':
+                    start = startAxis;
+                    width = Math.abs(width + dragDistance.x) <= minStretchWidth ? minStretchWidth : Math.sign(
+                      directionSymbol.x) * width + dragDistance.x;
+                    height = Math.abs(height + dragDistance.y) <= minStretchHeight ? minStretchHeight : Math
+                      .sign(
+                        directionSymbol.y) * height + dragDistance.y;
+                    end = {
+                      x: start.x + width,
+                      y: start.y + height,
+                    }
+                    break;
+                  case 'move':
+                    start = {
+                      x: start.x + dragDistance.x,
+                      y: start.y + dragDistance.y,
+                    }
+                    end = {
+                      x: start.x + width,
+                      y: start.y + height,
+                    }
+                  default:
+                    break;
+                }
+                // 生成图片
+                let src = canvas1.toDataURL("image/png");
+                if (src && isUploaded && isDrawOver) {
+                  generatorImg(src, start.x, start.y, width, height, width, height);
+                }
+                canvas.onmousemove = null;
+              }
+            }
+          }
+        }
+      }
+    }
+    async function generatorImg(src, clipStartX, clipStartY, clipWidth, clipHeight, newWidth, newHeight) {
+      let containerCanvas = document.createElement('canvas');
+      containerCanvas.width = clipWidth;
+      containerCanvas.height = clipHeight;
+
+      let img = await loadImg(src);
+      let containerCtx = containerCanvas.getContext('2d');
+      containerCtx.drawImage(img, clipStartY, clipStartY, clipWidth, clipHeight, 0, 0, newWidth, newHeight);
+      let newimg = containerCanvas.toDataURL("image/png");
+      download(newimg, '裁剪图片1');
+      containerCanvas = null;
+      containerCtx = null;
+    }
+    async function getCenterPos(canvas, imgWidth, imgHeight) {
+      return {
+        x: (canvas.width - imgWidth) / 2,
+        y: (canvas.height - imgHeight) / 2,
+      }
+    }
+  </script>
+</body>
+
+</html>
