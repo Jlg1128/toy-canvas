@@ -18,6 +18,10 @@
       'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
       'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
       'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
+      'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
+      'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
+      'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
+      'petal1.png', 'petal2.png', 'petal3.png', 'petal4.png', 'petal5.png', 'petal6.png', 'petal7.png',
     ].map((
       filename) => `../images/${filename}`);
 
@@ -27,27 +31,31 @@
     let ctx = canvas.getContext('2d');
     canvas.style.backgroundColor = 'skyblue'
 
-    function Star(img) {
+    function Star(img, canvas) {
+      let originPos = getRamdomPosition(canvas.width, canvas.height, true);
       this.width = 10;
       this.height = 10;
       this.canvasW = canvas.width;
       this.canvasH = canvas.height;
-      this.posX = getRamdomPosition(this.canvasW, this.canvasH).posX;
-      this.posY = getRamdomPosition(this.canvasW, this.canvasH).posY;
+      this.posX = originPos.posX;
+      this.posY = originPos.posY;
       this.img = img;
       this.vx = 10;
       this.vy = 10;
       this.r = 0;
+      // 远近
+      this.size = Math.random() * 0.3 + 0.5;
       this.isLarge = false;
       this.scale = Math.random() * 1;
       this.vxa = 1 * (Math.random() * 0.5 + 0.5);
       this.vya = 1 * (Math.random() * 0.5 + 0.5);
       this.color = 'skyblue';
       this.init = async () => {
+        let originPos = getRamdomPosition(this.canvasW, this.canvasH);
         this.vx = 5;
         this.vy = 2;
-        this.posX = getRamdomPosition(this.canvasW, this.canvasH).posX;
-        this.posY = getRamdomPosition(this.canvasW, this.canvasH).posY;
+        this.posX = originPos.posX;
+        this.posY = originPos.posY;
       }
       this.move = async () => {
         if (this.scale >= 1) {
@@ -56,13 +64,13 @@
           this.isLarge = false;
         }
         if (this.isLarge) {
-          this.scale -= 0.01;
+          this.scale -= Math.random() * 0.005;
         } else {
-          this.scale += 0.01;
+          this.scale += Math.random() * 0.005;
         }
         this.vx += this.vxa;
         this.vy += this.vya;
-        this.r += 0.05;
+        this.r += Math.random() * 0.05;
         this.posX += this.vx * (16 / 1000);
         this.posY += this.vy * (16 / 1000);
         if (this.posX > this.canvasW || this.posY >= this.canvasH) {
@@ -76,7 +84,7 @@
         ctx.translate(this.posX + (this.width) / 2, this.posY + (this.height) / 2);
         ctx.rotate(this.r);
         ctx.scale(1, this.scale)
-        ctx.drawImage(img, -this.width / 2, -this.height / 2);
+        ctx.drawImage(img, -this.width / 2, -this.height / 2, this.width * this.size, this.height * this.size);
         ctx.restore();
       }
     }
@@ -84,9 +92,10 @@
     function loadAllImg(srcs = []) {
       return Promise.all(srcs.map((src) => loadImg(src)))
     }
+
     loadAllImg(srcs)
       .then((imgs = []) => imgs.forEach((img, index) => {
-        let star = new Star(img);
+        let star = new Star(img, canvas);
         go(ctx, star, img, index);
       }))
       .catch(err => {
@@ -102,9 +111,17 @@
       window.requestAnimationFrame(() => go(ctx, star, img, index));
     }
 
-    function getRamdomPosition(canvasWidth, canvasHeight) {
-      let posX = Math.random() * 1 >= 0.5 ? Math.random() * 1 * canvasWidth / 2 : -50;
-      let posY = posX === -50 ? Math.random() * 1 * canvasHeight / 2 : -50;
+    function getRamdomPosition(canvasWidth, canvasHeight, initial = false) {
+      let flag = Math.random() * 1 >= 0.5 ? true : false;
+      let posX = 0;
+      let posY = 0;
+      if (initial) {
+        posX = Math.random() * 1 * canvasWidth;
+        posY = Math.random() * 1 * canvasHeight;
+      } else {
+        posX = flag ? Math.random() * 1 * canvasWidth * 2 / 3 : -50;
+        posY = flag ? -50 : Math.random() * 1 * canvasHeight * 2 / 3;
+      }
       return {
         posX,
         posY,
